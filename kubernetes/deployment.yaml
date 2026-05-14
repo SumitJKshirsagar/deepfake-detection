@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deepfake-detection
+  namespace: deepfake-detection
+  labels:
+    app: deepfake-detection
+spec:
+  replicas: 2                         # start with 2 pods
+  selector:
+    matchLabels:
+      app: deepfake-detection
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0               # zero-downtime deployments
+  template:
+    metadata:
+      labels:
+        app: deepfake-detection
+    spec:
+      containers:
+        - name: deepfake-detection
+          image: gcr.io/YOUR_PROJECT_ID/deepfake-detection:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          env:
+            - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+              value: "1"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: uploads-storage
+              mountPath: /app/static/uploads
+      volumes:
+        - name: uploads-storage
+          emptyDir: {}

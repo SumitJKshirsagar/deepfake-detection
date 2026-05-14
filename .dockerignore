@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+.env
+venv/
+env/
+.venv/
+static/uploads/
+test_face.jpg
+*.md
+.vscode/
