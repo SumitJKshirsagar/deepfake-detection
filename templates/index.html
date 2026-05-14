@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deepfake Detection</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      color: #ffffff;
+      letter-spacing: 1px;
+    }
+
+    header p {
+      color: #888;
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 620px;
+      margin-bottom: 28px;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #3a3d4e;
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #6c63ff;
+      background: rgba(108, 99, 255, 0.05);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .drop-zone p { color: #888; font-size: 0.9rem; }
+    .drop-zone strong { color: #ccc; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: #444;
+      font-size: 0.85rem;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #2a2d3a;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="url"] {
+      flex: 1;
+      background: #12141c;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      color: #e0e0e0;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="url"]:focus { border-color: #6c63ff; }
+
+    button {
+      background: #6c63ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover { background: #5a52e0; }
+    button:active { transform: scale(0.97); }
+    button:disabled { background: #3a3d4e; cursor: not-allowed; }
+
+    /* Preview */
+    #preview-wrap {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #preview-wrap img {
+      max-height: 220px;
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2a2d3a;
+      object-fit: cover;
+    }
+
+    /* Spinner */
+    #spinner {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      color: #888;
+    }
+
+    .spinner-ring {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #2a2d3a;
+      border-top-color: #6c63ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result card */
+    #result-card { display: none; }
+
+    .verdict-banner {
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .verdict-banner.authentic { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .verdict-banner.suspicious { background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.3); }
+    .verdict-banner.deepfake { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .verdict-icon { font-size: 2.2rem; }
+    .verdict-label { font-size: 1.4rem; font-weight: 700; }
+    .verdict-sub { font-size: 0.85rem; color: #888; margin-top: 2px; }
+
+    .authentic .verdict-label { color: #22c55e; }
+    .suspicious .verdict-label { color: #eab308; }
+    .deepfake .verdict-label  { color: #ef4444; }
+
+    /* Score bars */
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .score-label { width: 60px; font-size: 0.85rem; color: #aaa; }
+
+    .bar-track {
+      flex: 1;
+      height: 10px;
+      background: #12141c;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-fill.real { background: #22c55e; }
+    .bar-fill.fake { background: #ef4444; }
+
+    .score-pct { width: 46px; text-align: right; font-size: 0.85rem; color: #ccc; }
+
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #555;
+      margin-bottom: 14px;
+    }
+
+    #result-image {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #2a2d3a;
+    }
+
+    .try-again {
+      margin-top: 20px;
+      width: 100%;
+      background: transparent;
+      border: 1px solid #3a3d4e;
+      color: #aaa;
+    }
+
+    .try-again:hover { background: #2a2d3a; color: #fff; }
+
+    .error-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 10px;
+      padding: 16px;
+      color: #ef4444;
+      font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 Deepfake Detection</h1>
+  <p>Upload a face image or paste a URL to check if it's real or AI-generated</p>
+</header>
+
+<!-- Upload card -->
+<div class="card" id="upload-card">
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept="image/*" />
+    <div class="icon">🖼️</div>
+    <p><strong>Drag & drop an image here</strong></p>
+    <p style="margin-top:6px">or click to browse — JPG, PNG, WebP</p>
+  </div>
+
+  <div id="preview-wrap">
+    <img id="preview-img" src="" alt="Preview" />
+  </div>
+
+  <div class="divider">or paste an image URL</div>
+
+  <div class="url-row">
+    <input type="url" id="url-input" placeholder="https://example.com/face.jpg" />
+    <button id="analyze-url-btn">Analyze</button>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div id="spinner">
+    <div class="spinner-ring"></div>
+    <p>Analyzing image...</p>
+  </div>
+</div>
+
+<!-- Result card -->
+<div class="card" id="result-card">
+  <img id="result-image" src="" alt="Analyzed image" />
+
+  <div class="verdict-banner" id="verdict-banner">
+    <div class="verdict-icon" id="verdict-icon"></div>
+    <div>
+      <div class="verdict-label" id="verdict-label"></div>
+      <div class="verdict-sub" id="verdict-sub"></div>
+    </div>
+  </div>
+
+  <p class="section-title">Score Breakdown</p>
+
+  <div class="score-row">
+    <span class="score-label">Real</span>
+    <div class="bar-track"><div class="bar-fill real" id="bar-real" style="width:0%"></div></div>
+    <span class="score-pct" id="pct-real">0%</span>
+  </div>
+  <div class="score-row">
+    <span class="score-label">Fake</span>
+    <div class="bar-track"><div class="bar-fill fake" id="bar-fake" style="width:0%"></div></div>
+    <span class="score-pct" id="pct-fake">0%</span>
+  </div>
+
+  <button class="try-again" id="try-again-btn">Try another image</button>
+</div>
+
+<script>
+  const dropZone      = document.getElementById('drop-zone');
+  const fileInput     = document.getElementById('file-input');
+  const previewWrap   = document.getElementById('preview-wrap');
+  const previewImg    = document.getElementById('preview-img');
+  const urlInput      = document.getElementById('url-input');
+  const analyzeUrlBtn = document.getElementById('analyze-url-btn');
+  const spinner       = document.getElementById('spinner');
+  const uploadCard    = document.getElementById('upload-card');
+  const resultCard    = document.getElementById('result-card');
+  const errorBox      = document.getElementById('error-box');
+  const tryAgainBtn   = document.getElementById('try-again-btn');
+
+  // Drag & drop highlight
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  analyzeUrlBtn.addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    submitURL(url);
+  });
+
+  urlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') analyzeUrlBtn.click();
+  });
+
+  tryAgainBtn.addEventListener('click', () => {
+    resultCard.style.display = 'none';
+    uploadCard.style.display = 'block';
+    previewWrap.style.display = 'none';
+    previewImg.src = '';
+    urlInput.value = '';
+    fileInput.value = '';
+    errorBox.style.display = 'none';
+  });
+
+  function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      previewWrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    const fd = new FormData();
+    fd.append('file', file);
+    submitForm(fd);
+  }
+
+  function submitURL(url) {
+    const fd = new FormData();
+    fd.append('url', url);
+    submitForm(fd);
+  }
+
+  function submitForm(fd) {
+    errorBox.style.display = 'none';
+    spinner.style.display = 'block';
+    analyzeUrlBtn.disabled = true;
+
+    fetch('/analyze', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        spinner.style.display = 'none';
+        analyzeUrlBtn.disabled = false;
+        if (data.error) return showError(data.error);
+        showResult(data);
+      })
+      .catch(err => {
+        spinner.style.display = 'none';
+        analyzeUrlBtn.disabled = false;
+        showError('Network error: ' + err.message);
+      });
+  }
+
+  function showError(msg) {
+    errorBox.textContent = '⚠ ' + msg;
+    errorBox.style.display = 'block';
+  }
+
+  function showResult(data) {
+    const verdict  = data.verdict;
+    const scores   = data.scores || {};
+    const realPct  = scores['Real'] ?? 0;
+    const fakePct  = scores['Fake'] ?? 0;
+    const confidence = data.confidence;
+
+    // Image
+    const resultImage = document.getElementById('result-image');
+    resultImage.src = data.image_url || '';
+    resultImage.style.display = data.image_url ? 'block' : 'none';
+
+    // Verdict banner
+    const banner = document.getElementById('verdict-banner');
+    banner.className = 'verdict-banner ' + verdict.toLowerCase();
+
+    document.getElementById('verdict-icon').textContent =
+      verdict === 'AUTHENTIC' ? '✅' : verdict === 'SUSPICIOUS' ? '⚠️' : '❌';
+    document.getElementById('verdict-label').textContent = verdict;
+    document.getElementById('verdict-sub').textContent =
+      `${confidence}% confidence — ${data.summary || ''}`;
+
+    // Score bars
+    document.getElementById('bar-real').style.width = realPct + '%';
+    document.getElementById('bar-fake').style.width = fakePct + '%';
+    document.getElementById('pct-real').textContent  = realPct + '%';
+    document.getElementById('pct-fake').textContent  = fakePct + '%';
+
+    uploadCard.style.display = 'none';
+    resultCard.style.display = 'block';
+  }
+</script>
+</body>
+</html>
