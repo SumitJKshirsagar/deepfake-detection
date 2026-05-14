@@ -34,11 +34,11 @@ RUN mkdir -p static/uploads
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
-EXPOSE 5000
+ENV PORT=8080
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/')"
 
-# Run with gunicorn — reads PORT env var (Cloud Run sets this automatically)
-CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --timeout 120 app:app
+CMD gunicorn --bind 0.0.0.0:8080 --workers 2 --timeout 120 app:app
