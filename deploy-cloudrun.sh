@@ -14,7 +14,7 @@
 set -e
 
 # ── CONFIG — change PROJECT_ID to your Google Cloud project ID ───────────────
-PROJECT_ID="your-gcp-project-id"
+PROJECT_ID="deepfake-detection-496320"
 SERVICE_NAME="deepfake-detection"
 REGION="us-central1"
 IMAGE="gcr.io/$PROJECT_ID/$SERVICE_NAME"
